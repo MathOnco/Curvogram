@@ -12,7 +12,7 @@ Here are two versions with matlab and python code.
 ### Matlab
 
 Here we show the functions for a normal distribution whose mean is 1.5 and variance of 0.5. The curve functions are f(x)=sin(x), f(x)=cos(x), and f(x)=x^2.
-![]("./MATLAB/MATLAB_example.png")
+![](/MATLAB/MATLAB_example.png?raw=true)
 
 
 ### Python
