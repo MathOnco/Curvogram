@@ -18,7 +18,7 @@ Here we show the functions for a normal distribution whose mean is 1.5 and varia
 ### Python
 
 Here we show the same curve functions are f(x)=sin(x), f(x)=cos(x), and f(x)=x^2. However, we show a beta distriution whose alpha and beta shape parameters are 2 and 5, respectively.
-![](/MATLAB/Python_example.png?raw=true)
+![](/python/Python_example.png?raw=true)
 
 
 ### Important considerations:
