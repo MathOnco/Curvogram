@@ -1,7 +1,7 @@
 clc;clear;close all;
 
 % bins of histogram (also used for curvogram)
-X = 0.5:0.1:2.5;
+X = 0.5:0.2:2.5;
 
 % normal distribution:
 mu = 1.5; sigma = 0.5;
@@ -15,32 +15,28 @@ fprime = @(x) 0;
 figure(1);
 curvogram(X,Y,f,fprime);
 
-%% example 2: cos(x)
+%% example 2: sin(x)
 f = @(x) sin(x);
 fprime = @(x) cos(x);
 
 figure(2);
-curvogram(X,Y,f,fprime);
+curvogram(X,Y,f,fprime,'ScaleHeight',1,'BinWidth',1,'Color',blue());
 
 
-%% example 2: cos(x)
+%% example 3: cos(x)
 f = @(x) cos(x);
 fprime = @(x) -sin(x);
 
 figure(3);
-curvogram(X,Y,f,fprime,'XLimits',[0, 3], 'YLimits',[-1, 3],'ScaleHeight',1,'BinWidth',1);
+curvogram(X,Y,f,fprime,'ScaleHeight',1,'BinWidth',1);
 
 
-%% example 3: x.^2
+%% example 4: x.^2
 f = @(x) x.^2;
 fprime = @(x) 2*x;
 
 figure(4);
-curvogram(X,Y,f,fprime,'ScaleHeight',5,'BinWidth',0.7);
-
-
-
-
+curvogram(X,Y,f,fprime,'ScaleHeight',15,'BinWidth',1);
 
 
 

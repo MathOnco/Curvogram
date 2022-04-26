@@ -13,6 +13,9 @@ function [] = curvogram(X,Y,f,fprime,varargin)
 %           'YLimits' - y axis limits ( e.g. [0, 1] )
 %           'BinWidth' - usually between 0 and 1 (default:0.9)
 %           'ScaleHeight' - 1 is default
+%           'Color' - bin color
+%           'FaceAlpha' - alpha value (opacity) of bins
+%           'SkewBins' - true or false (false = straight, parallel lines)
 %       
 %       example:
 %           X = ......
@@ -25,8 +28,6 @@ figure_number=h.Number;
 figure(figure_number); hold on;
 
 
-
-
 %% assert length(X) == length(Y):
 errorMsg1 = 'X and Y must be the same length.'; 
 XYLength = @(x,y) assert(length(x)==length(y),errorMsg1);
@@ -37,11 +38,13 @@ XYLength(X,Y);
 p = inputParser; 
 
 %% set default values:
-BinWidth = 0.9;
+BinWidth = 1;
 ScaleHeight=1;
+Color = [0.2188,0.4531,0.6914]; % default is blue
+FaceAlpha = 1.0;
 
 % set a buffer on default xlimits:
-xlimits = [min(X) - (max(X)-min(X))*0.25, max(X) + (max(X)-min(X))*0.25];
+xlimits = [min(X) - (max(X)-min(X))*0.5, max(X) + (max(X)-min(X))*0.5];
 
 % function values:
 x= xlimits(1):((xlimits(2)-xlimits(1))/100):xlimits(end);
@@ -57,6 +60,7 @@ end
 addParameter(p,'XLimits',xlimits);
 addParameter(p,'YLimits',ylimits);
 
+SkewBins=true;
 
 
 % read in optional parameters
@@ -71,22 +75,23 @@ for param = 1:1:(nParams/2)
         ScaleHeight=varargin{index+1};
     elseif strcmp(varargin{index}, 'BinWidth')
         BinWidth=varargin{index+1};
+    elseif strcmp(varargin{index},'SkewBins')
+        SkewBins=varargin{index+1};
+    elseif strcmp(varargin{index},'Color')
+        Color=varargin{index+1};
+    elseif strcmp(varargin{index},'FaceAlpha')
+        FaceAlpha=varargin{index+1};
     end
 end
 
 
-
-
-
 % add gridlines at same locations as the histogram:
-addGridlines(X,f,fprime,xlimits,ylimits);
-
-
+addGridlines(X,Y,f,fprime,xlimits,ylimits,ScaleHeight);
 
 % plot function for full range:
 plot(x,y,'-k','LineWidth',5); hold on;
 
-custom_histogram(f,fprime,X,Y,xlimits,ylimits,BinWidth,ScaleHeight);
+custom_histogram(f,fprime,X,Y,xlimits,ylimits,BinWidth,ScaleHeight,SkewBins,Color,FaceAlpha);
 
 
 xlim(xlimits);
@@ -96,35 +101,29 @@ end
 
 
 %% add gridlines
-function [] = addGridlines(X,f,fprime,xlimits,ylimits)
+function [] = addGridlines(X,Y,f,fprime,xlimits,ylimits,ScaleHeight)
 
     SCALE = diff(xlimits)/diff(ylimits);
 
-    % d:= max distance of any line w/ axis scale limits:
-    d = sqrt((xlimits(2) - xlimits(1)).^2 + (ylimits(2) - ylimits(1)).^2);
-
-
-    % assume 20 grid lines:
-    GL = 20;
-    xStepSmall = (xlimits(2)-xlimits(1))/(GL*5);
-
-    xVecFine = xlimits(1): xStepSmall : xlimits(2);
-    yVec = 0 : ((ylimits(2))/GL) : d;
+    d = (max(Y)*ScaleHeight)*1.1;    
 
     % place gridlines on "X" vals, plus more on either side:
     xStep = mean(min(diff(X),max(diff(X)))); % average step size of "X"
-    x_left = X(1):-xStep:xlimits(1);
-    x_left = fliplr(x_left);
-    x_right = X(end):xStep:xlimits(2);
+    xVecCoarse = [X(1)-xStep,X,X(end)+xStep];
 
-    xVecCoarse = [x_left(1:end-1),X,x_right(2:end)];
+    % assume 10 grid lines:
+    xStepSmall = (xVecCoarse(end)-xVecCoarse(1))/(200);
+    xVecFine = xVecCoarse(1): xStepSmall : xVecCoarse(end);
+    yVec = 0 : (d/10) : d;
 
+
+    gray = [227,227,227]/350;
 
     %% add vertical lines:
     for x = xVecCoarse
         point=[x,d]; % coordinates in transformed system
         P=coord_transform(point,SCALE,f,fprime);
-        plot([x,P(1)],[f(x),P(2)],'-k','LineWidth',1); hold on;
+        plot([x,P(1)],[f(x),P(2)],'-','LineWidth',1,'Color',gray); hold on;
     end
     
     % spacing of horizontal lines:
@@ -144,12 +143,9 @@ function [] = addGridlines(X,f,fprime,xlimits,ylimits)
                 line_y=[line_y,P2(2)];
             end 
         end
-        plot(line_x,line_y,'-k','LineWidth',1); hold on;
+        plot(line_x,line_y,'-','LineWidth',1,'Color',gray); hold on;
     
     end
-
-
-    
 
     xlim(xlimits);
     ylim(ylimits);
@@ -170,8 +166,8 @@ end
 
 
 
-
-function [] = custom_histogram(f,fprime,x_values,y_values,xlimits,ylimits,BinWidth,ScaleHeight)
+%% add polygons at each y location
+function [] = custom_histogram(f,fprime,X,Y,xlimits,ylimits,BinWidth,ScaleHeight,SkewBins,Color,FaceAlpha)
 
     % colors:
     red = [0.84,0.18,0.14];
@@ -180,41 +176,67 @@ function [] = custom_histogram(f,fprime,x_values,y_values,xlimits,ylimits,BinWid
     % helper values
     SCALE = diff(xlimits)/diff(ylimits);
     margin = 1-BinWidth;% default is 0.1;
-    delta_x = x_values(2) - x_values(1);
+    delta_x = X(2) - X(1);
     w = delta_x*(1-margin);
 
 
     i=1;
-    for xVal = x_values
+    for xVal = X
 
-        h=y_values(i)*ScaleHeight;
+        h=Y(i)*ScaleHeight;
         theta1 = atan2(fprime(xVal), 1/SCALE);        
 
         %% plot line only:
         bottom = coord_transform([xVal,0],SCALE,f,fprime); % bottom
         top = coord_transform([xVal,h],SCALE,f,fprime); % top
 
-
+        % find corners if SkewBins is true:
+        
         % bottom left:
-        x2 = bottom(1) - (w/2)*cos(theta1);
-        y2 = bottom(2) - (1/SCALE)*(w/2)*sin(theta1);
+        BL = coord_transform([xVal-w/2,0],SCALE,f,fprime);
+        x2 = BL(1);
+        y2 = BL(2);
 
         % bottom right:
-        x3 = bottom(1) + (w/2)*cos(theta1);
-        y3 = bottom(2) + (1/SCALE)*(w/2)*sin(theta1);
+        BR = coord_transform([xVal+w/2,0],SCALE,f,fprime);
+        x3 = BR(1);
+        y3 = BR(2);
 
         % top right:
-        x4 = top(1) + (w/2)*cos(theta1);
-        y4 = top(2) + (1/SCALE)*(w/2)*sin(theta1);
+        TR = coord_transform([xVal+w/2,h],SCALE,f,fprime);
+        x4 = TR(1);
+        y4 = TR(2);
 
         % top left:
-        x1 = top(1) - (w/2)*cos(theta1);
-        y1 = top(2) - (1/SCALE)*(w/2)*sin(theta1);
+        TL = coord_transform([xVal-w/2,h],SCALE,f,fprime);
+        x1 = TL(1);
+        y1 = TL(2);
+
+        if (~SkewBins)
+            % bottom left:
+            x2 = bottom(1) - (w/2)*cos(theta1);
+            y2 = bottom(2) - (1/SCALE)*(w/2)*sin(theta1);
+    
+            % bottom right:
+            x3 = bottom(1) + (w/2)*cos(theta1);
+            y3 = bottom(2) + (1/SCALE)*(w/2)*sin(theta1);
+    
+            % top right:
+            x4 = top(1) + (w/2)*cos(theta1);
+            y4 = top(2) + (1/SCALE)*(w/2)*sin(theta1);
+    
+            % top left:
+            x1 = top(1) - (w/2)*cos(theta1);
+            y1 = top(2) - (1/SCALE)*(w/2)*sin(theta1);
+        end
         
         if (h>0)    
             pgon = polyshape([x1,x2,x3,x4],[y1,y2,y3,y4]);hold on;
-            c = (red-blue).*(h/(max(y_values)*ScaleHeight)) + blue;
-            plot(pgon,'FaceAlpha',0.8,'FaceColor',c);
+            c = (red-blue).*(h/(max(Y)*ScaleHeight)) + blue;
+            if ~isnan(Color)
+                c=Color;
+            end
+            plot(pgon,'FaceAlpha',FaceAlpha,'FaceColor',c,'LineWidth',1.5);
         end
 
         % plot function for full range:
